@@ -7,6 +7,9 @@
 
 import UIKit
 
+
+
+
 class PageVC: UIViewController {
     
     @IBOutlet weak var backbtn: UIButton!
@@ -20,73 +23,63 @@ class PageVC: UIViewController {
     
     
     var allData: [String: Any]?
-        static var cartItems = [[String: Any]]() 
-        
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+       static var cartItems = [[String: Any]]()
 
-        backbtn.layer.cornerRadius = 25
-        addToCartButton.addTarget(self, action: #selector(addToCart), for: .touchUpInside)
+       override func viewDidLoad() {
+           super.viewDidLoad()
 
-        setupUI()
-    }
+           backbtn.layer.cornerRadius = 25
+           addToCartButton.addTarget(self, action: #selector(addToCart), for: .touchUpInside)
 
-    func setupUI() {
-        guard let data = allData else {
-            print("Error: No data received in PageVC")
-            return
-        }
+           updateUI()
+       }
 
-        category.text = data["category"] as? String ?? "Unknown Category"
-        desc.text = data["description"] as? String ?? "No description available"
-        price.text = "$\(data["price"] as? Double ?? 0.0)"
+       override func viewWillAppear(_ animated: Bool) {
+           super.viewWillAppear(animated)
+           // Reconfigure UI when the view reappears to ensure data is refreshed
+           updateUI()
+       }
 
-        if let ratingDict = data["rating"] as? [String: Any] {
-            let ratingValue = ratingDict["rate"] as? Double ?? 0.0
-            let countValue = ratingDict["count"] as? Int ?? 0
-            rate.text = "\(ratingValue)"
-            count.text = "Reviews: \(countValue)"
-        } else {
-            rate.text = "No rating"
-            count.text = "Reviews: 0"
-        }
+       func updateUI() {
+           guard let data = allData else { return }
 
-        if let urlString = data["image"] as? String, let url = URL(string: urlString) {
-            DispatchQueue.global().async {
-                if let imageData = try? Data(contentsOf: url) {
-                    DispatchQueue.main.async {
-                        self.image.image = UIImage(data: imageData)
-                    }
-                }
-            }
-        } else {
-            image.image = UIImage(named: "placeholder")
-        }
-    }
+           category.text = data["category"] as? String ?? "Unknown Category"
+           desc.text = data["description"] as? String ?? "No description"
+           price.text = "$\(data["price"] as? Double ?? 0.0)"
 
-    @IBAction func back(_ sender: Any) {
-        let secondVC = storyboard?.instantiateViewController(withIdentifier: "NavigatePage") as! NavigatePage
-         
-            navigationController?.pushViewController(secondVC, animated: true)
-    }
+           if let rating = data["rating"] as? [String: Any] {
+               rate.text = "\(rating["rate"] as? Double ?? 0.0)"
+               count.text = "Reviews: \(rating["count"] as? Int ?? 0)"
+           }
 
-    @objc func addToCart() {
-        guard let item = allData else {
-            print("Error: No item data to add to cart")
-            return
-        }
+           if let urlStr = data["image"] as? String, let url = URL(string: urlStr) {
+               DispatchQueue.global().async {
+                   if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                       DispatchQueue.main.async {
+                           self.image.image = img
+                       }
+                   }
+               }
+           }
+       }
 
-        PageVC.cartItems.append(item)
-        print("Item added to cart: \(item)")
+       @IBAction func back(_ sender: Any) {
+           // When navigating back, ensure that allData is still set
+           let secondVC = storyboard?.instantiateViewController(withIdentifier: "NavigatePage") as! NavigatePage
+           navigationController?.pushViewController(secondVC, animated: true)
+       }
 
-        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-        if let cartVC = storyboard.instantiateViewController(withIdentifier: "ViewController") as? ViewController {
-            cartVC.cartItems = PageVC.cartItems
+       @objc func addToCart() {
+           guard let item = allData else { return }
 
-            navigationController?.pushViewController(cartVC, animated: true)
-        } else {
-            print("Error: Could not instantiate ViewController. Check storyboard ID.")
-        }
-    }
-}
+           // Add item to the CartManager
+           CartManager.shared.addItem(item)
+
+           // Push ViewController with cart data after adding item
+           let storyboard = UIStoryboard(name: "Main", bundle: nil)
+           if let cartVC = storyboard.instantiateViewController(withIdentifier: "ViewController") as? ViewController {
+               navigationController?.pushViewController(cartVC, animated: true)
+           }
+       }
+   }
